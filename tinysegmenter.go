@@ -1,9 +1,6 @@
 package tinysegmenter
 
-import (
-	"regexp"
-	"strings"
-)
+import "regexp"
 
 type chartype struct {
 	re    *regexp.Regexp
@@ -106,11 +103,6 @@ func (ts *TinySegmenter) initWeights() {
 }
 
 func (ts *TinySegmenter) ctype(str string) string {
-	// Handle preserve placeholders as special type
-	r := []rune(str)
-	if len(r) == 1 && r[0] >= 0xE000 && r[0] <= 0xF8FF {
-		return "P"
-	}
 	for _, ct := range ts.chartype {
 		if ct.re.MatchString(str) {
 			return ct.ctype
@@ -133,23 +125,20 @@ func (ts *TinySegmenter) Segment(input string) []string {
 		return []string{}
 	}
 
-	// Temporarily replace preserve list strings with placeholders
-	protected := make(map[string]string)
-	text := input
-	for i, word := range ts.preserveList {
-		if len(word) > 0 {
-			placeholder := string(rune(0xE000 + i)) // Use Unicode Private Use Area
-			text = strings.ReplaceAll(text, word, placeholder)
-			protected[placeholder] = word
-		}
-	}
+	// Perform normal segmentation
+	segments := ts.segmentOriginal(input)
 
-	// Perform segmentation
+	// Merge preserved words
+	return ts.mergePreservedWords(segments)
+}
+
+// segmentOriginal performs the original segmentation logic
+func (ts *TinySegmenter) segmentOriginal(input string) []string {
 	result := []string{}
 	seg := []string{"B3", "B2", "B1"}
 	ctype := []string{"O", "O", "O"}
 
-	runes := []rune(text)
+	runes := []rune(input)
 	for _, r := range runes {
 		seg = append(seg, string(r))
 		ctype = append(ctype, ts.ctype(string(r)))
@@ -220,13 +209,47 @@ func (ts *TinySegmenter) Segment(input string) []string {
 		word += seg[i]
 	}
 	result = append(result, word)
+	return result
+}
 
-	// Restore original strings from placeholders
-	for i, segment := range result {
-		for placeholder, original := range protected {
-			result[i] = strings.ReplaceAll(segment, placeholder, original)
+// mergePreservedWords merges segments that form preserved words
+func (ts *TinySegmenter) mergePreservedWords(segments []string) []string {
+	for _, preserve := range ts.preserveList {
+		segments = ts.mergeIfMatches(segments, preserve)
+	}
+	return segments
+}
+
+// mergeIfMatches merges consecutive segments if they form the target word
+func (ts *TinySegmenter) mergeIfMatches(segments []string, target string) []string {
+	result := []string{}
+	i := 0
+
+	for i < len(segments) {
+		// Try to match target starting from position i
+		matched, length := ts.tryMatch(segments, i, target)
+		if matched {
+			result = append(result, target)
+			i += length
+		} else {
+			result = append(result, segments[i])
+			i++
 		}
 	}
-
 	return result
+}
+
+// tryMatch checks if consecutive segments starting at pos form the target
+func (ts *TinySegmenter) tryMatch(segments []string, pos int, target string) (bool, int) {
+	combined := ""
+	for i := pos; i < len(segments); i++ {
+		combined += segments[i]
+		if combined == target {
+			return true, i - pos + 1
+		}
+		if len(combined) >= len(target) {
+			break
+		}
+	}
+	return false, 0
 }
