@@ -54,6 +54,7 @@ type TinySegmenter struct {
 	UW4      charmap
 	UW5      charmap
 	UW6      charmap
+	NN       charmap
 }
 
 func New() *TinySegmenter {
@@ -84,7 +85,7 @@ func (ts *TinySegmenter) initPatterns() {
 func (ts *TinySegmenter) initWeights() {
 	ts.BIAS = -332
 	ts.BC1 = charmap{"HH": 6, "II": 2461, "KH": 406, "OH": -1378}
-	ts.BC2 = charmap{"AA": -3267, "AI": 2744, "AN": -878, "HH": -4070, "HM": -1711, "HN": 4012, "HO": 3761, "IA": 1327, "IH": -1184, "II": -1332, "IK": 1721, "IO": 5492, "KI": 3831, "KK": -8741, "MH": -3132, "MK": 3334, "OO": -2920}
+	ts.BC2 = charmap{"AA": -3267, "AI": 2744, "AN": -878, "HH": -4070, "HM": -1711, "HN": 4012, "HO": 3761, "IA": 1327, "IH": -1184, "II": -1332, "IK": 1721, "IO": 5492, "KI": 3831, "KK": -8741, "MH": -3132, "MK": 3334, "NM": 15000, "OO": -2920}
 	ts.BC3 = charmap{"HH": 996, "HI": 626, "HK": -721, "HN": -1307, "HO": -836, "IH": -301, "KK": 2762, "MK": 1079, "MM": 4034, "OA": -1652, "OH": 266}
 	ts.BP1 = charmap{"BB": 295, "OB": 304, "OO": -125, "UB": 352}
 	ts.BP2 = charmap{"BO": 60, "OO": -1762}
@@ -97,6 +98,7 @@ func (ts *TinySegmenter) initWeights() {
 	ts.initUPWeights()
 	ts.initUQWeights()
 	ts.initUWWeights()
+	ts.NN = charmap{"NN": -11097}
 }
 
 func (ts *TinySegmenter) ctype(str string) string {
@@ -180,6 +182,7 @@ func (ts *TinySegmenter) Segment(input string) []string {
 		score += ts.ts(ts.TQ2[p2+c2+c3+c4])
 		score += ts.ts(ts.TQ3[p3+c1+c2+c3])
 		score += ts.ts(ts.TQ4[p3+c2+c3+c4])
+		score += ts.ts(ts.NN[c3+c4])
 
 		p := "O"
 		if score > 0 {
