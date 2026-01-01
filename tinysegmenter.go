@@ -1,6 +1,9 @@
 package tinysegmenter
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 type chartype struct {
 	re    *regexp.Regexp
@@ -10,51 +13,52 @@ type chartype struct {
 type charmap map[string]int
 
 type TinySegmenter struct {
-	chartype []chartype
-	BIAS     int
-	BC1      charmap
-	BC2      charmap
-	BC3      charmap
-	BP1      charmap
-	BP2      charmap
-	BQ1      charmap
-	BQ2      charmap
-	BQ3      charmap
-	BQ4      charmap
-	BW1      charmap
-	BW2      charmap
-	BW3      charmap
-	TC1      charmap
-	TC2      charmap
-	TC3      charmap
-	TC4      charmap
-	TQ1      charmap
-	TQ2      charmap
-	TQ3      charmap
-	TQ4      charmap
-	TW1      charmap
-	TW2      charmap
-	TW3      charmap
-	TW4      charmap
-	UC1      charmap
-	UC2      charmap
-	UC3      charmap
-	UC4      charmap
-	UC5      charmap
-	UC6      charmap
-	UP1      charmap
-	UP2      charmap
-	UP3      charmap
-	UQ1      charmap
-	UQ2      charmap
-	UQ3      charmap
-	UW1      charmap
-	UW2      charmap
-	UW3      charmap
-	UW4      charmap
-	UW5      charmap
-	UW6      charmap
-	NN       charmap
+	chartype     []chartype
+	preserveList []string // List of strings that should not be segmented
+	BIAS         int
+	BC1          charmap
+	BC2          charmap
+	BC3          charmap
+	BP1          charmap
+	BP2          charmap
+	BQ1          charmap
+	BQ2          charmap
+	BQ3          charmap
+	BQ4          charmap
+	BW1          charmap
+	BW2          charmap
+	BW3          charmap
+	TC1          charmap
+	TC2          charmap
+	TC3          charmap
+	TC4          charmap
+	TQ1          charmap
+	TQ2          charmap
+	TQ3          charmap
+	TQ4          charmap
+	TW1          charmap
+	TW2          charmap
+	TW3          charmap
+	TW4          charmap
+	UC1          charmap
+	UC2          charmap
+	UC3          charmap
+	UC4          charmap
+	UC5          charmap
+	UC6          charmap
+	UP1          charmap
+	UP2          charmap
+	UP3          charmap
+	UQ1          charmap
+	UQ2          charmap
+	UQ3          charmap
+	UW1          charmap
+	UW2          charmap
+	UW3          charmap
+	UW4          charmap
+	UW5          charmap
+	UW6          charmap
+	NN           charmap
 }
 
 func New() *TinySegmenter {
@@ -102,12 +106,22 @@ func (ts *TinySegmenter) initWeights() {
 }
 
 func (ts *TinySegmenter) ctype(str string) string {
+	// Handle preserve placeholders as special type
+	r := []rune(str)
+	if len(r) == 1 && r[0] >= 0xE000 && r[0] <= 0xF8FF {
+		return "P"
+	}
 	for _, ct := range ts.chartype {
 		if ct.re.MatchString(str) {
 			return ct.ctype
 		}
 	}
 	return "O"
+}
+
+// SetPreserveList sets a list of strings that should not be segmented
+func (ts *TinySegmenter) SetPreserveList(words []string) {
+	ts.preserveList = words
 }
 
 func (ts *TinySegmenter) ts(v int) int {
@@ -119,11 +133,23 @@ func (ts *TinySegmenter) Segment(input string) []string {
 		return []string{}
 	}
 
+	// Temporarily replace preserve list strings with placeholders
+	protected := make(map[string]string)
+	text := input
+	for i, word := range ts.preserveList {
+		if len(word) > 0 {
+			placeholder := string(rune(0xE000 + i)) // Use Unicode Private Use Area
+			text = strings.ReplaceAll(text, word, placeholder)
+			protected[placeholder] = word
+		}
+	}
+
+	// Perform segmentation
 	result := []string{}
 	seg := []string{"B3", "B2", "B1"}
 	ctype := []string{"O", "O", "O"}
 
-	runes := []rune(input)
+	runes := []rune(text)
 	for _, r := range runes {
 		seg = append(seg, string(r))
 		ctype = append(ctype, ts.ctype(string(r)))
@@ -194,5 +220,13 @@ func (ts *TinySegmenter) Segment(input string) []string {
 		word += seg[i]
 	}
 	result = append(result, word)
+
+	// Restore original strings from placeholders
+	for i, segment := range result {
+		for placeholder, original := range protected {
+			result[i] = strings.ReplaceAll(segment, placeholder, original)
+		}
+	}
+
 	return result
 }
