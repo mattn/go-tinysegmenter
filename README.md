@@ -6,6 +6,7 @@ This implementation add following features:
 
 * the NN and BC2/NM feature addition from the original, which prevents consecutive numbers from being split.
 * preserve strings that should not be segmented.
+* preserve token that should be kept URL/E-mail as a single token.
 
 ## Installation
 
