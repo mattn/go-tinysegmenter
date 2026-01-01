@@ -2,7 +2,7 @@
 
 Go port of TinySegmenter 0.2. A lightweight library for segmenting Japanese text into words.
 
-This implementation includes the NN__ feature addition from the original, which prevents consecutive numbers from being split.
+This implementation includes the NN and BC2/NM feature addition from the original, which prevents consecutive numbers from being split.
 
 ## Installation
 
