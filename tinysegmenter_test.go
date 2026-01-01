@@ -27,3 +27,41 @@ func TestSegment(t *testing.T) {
 		}
 	}
 }
+
+func TestPreserveTokens(t *testing.T) {
+	ts := New()
+	ts.SetPreserveTokens(true)
+	
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{
+			"URLはhttps://example.comです",
+			[]string{"URL", "は", "https://example.com", "です"},
+		},
+		{
+			"ファイルはfoo/bar.txtです",
+			[]string{"ファイル", "は", "foo/bar.txt", "です"},
+		},
+		{
+			"関数func_nameを呼び出す",
+			[]string{"関数", "func_name", "を", "呼び出す"},
+		},
+		{
+			"メールuser@example.comを送信",
+			[]string{"メール", "user@example.com", "を", "送信"},
+		},
+		{
+			"foo bar",
+			[]string{"foo", " ", "bar"},
+		},
+	}
+	
+	for _, test := range tests {
+		result := ts.Segment(test.input)
+		if !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("Input: %s\nExpected: %v\nGot: %v", test.input, test.expected, result)
+		}
+	}
+}

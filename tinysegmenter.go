@@ -10,8 +10,9 @@ type chartype struct {
 type charmap map[string]int
 
 type TinySegmenter struct {
-	chartype     []chartype
-	preserveList []string // List of strings that should not be segmented
+	chartype        []chartype
+	preserveList    []string // List of strings that should not be segmented
+	preserveTokens  bool     // Flag to preserve programming tokens (URLs, paths, etc.)
 	BIAS         int
 	BC1          charmap
 	BC2          charmap
@@ -116,6 +117,11 @@ func (ts *TinySegmenter) SetPreserveList(words []string) {
 	ts.preserveList = words
 }
 
+// SetPreserveTokens enables/disables preservation of programming tokens
+func (ts *TinySegmenter) SetPreserveTokens(enable bool) {
+	ts.preserveTokens = enable
+}
+
 func (ts *TinySegmenter) ts(v int) int {
 	return v
 }
@@ -123,6 +129,11 @@ func (ts *TinySegmenter) ts(v int) int {
 func (ts *TinySegmenter) Segment(input string) []string {
 	if input == "" {
 		return []string{}
+	}
+
+	// Extract tokens if preserve flag is enabled
+	if ts.preserveTokens {
+		return ts.segmentWithTokens(input)
 	}
 
 	// Perform normal segmentation
@@ -252,4 +263,38 @@ func (ts *TinySegmenter) tryMatch(segments []string, pos int, target string) (bo
 		}
 	}
 	return false, 0
+}
+
+// segmentWithTokens performs segmentation while preserving programming tokens
+func (ts *TinySegmenter) segmentWithTokens(input string) []string {
+	tokenPattern := regexp.MustCompile(`[a-zA-Z0-9._/\-:@]+`)
+	
+	result := []string{}
+	lastEnd := 0
+	
+	matches := tokenPattern.FindAllStringIndex(input, -1)
+	for _, match := range matches {
+		start, end := match[0], match[1]
+		
+		// Process text before token
+		if start > lastEnd {
+			beforeText := input[lastEnd:start]
+			segments := ts.segmentOriginal(beforeText)
+			result = append(result, ts.mergePreservedWords(segments)...)
+		}
+		
+		// Add token as single segment
+		token := input[start:end]
+		result = append(result, token)
+		lastEnd = end
+	}
+	
+	// Process remaining text
+	if lastEnd < len(input) {
+		remainingText := input[lastEnd:]
+		segments := ts.segmentOriginal(remainingText)
+		result = append(result, ts.mergePreservedWords(segments)...)
+	}
+	
+	return result
 }
