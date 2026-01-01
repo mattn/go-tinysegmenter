@@ -13,6 +13,7 @@ func TestSegment(t *testing.T) {
 		{"私の名前は中野です", []string{"私", "の", "名前", "は", "中野", "です"}},
 		{"2023年12月31日", []string{"2023", "年", "12", "月", "31", "日"}}, // Numbers and kanji should be split
 		{"123456", []string{"123456"}}, // Consecutive numbers should not be split
+		{"アリババと40人の盗賊", []string{"アリババ", "と", "40", "人", "の", "盗賊"}}, // Katakana and numbers
 	}
 
 	ts := New()
