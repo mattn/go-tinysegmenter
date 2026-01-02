@@ -67,8 +67,8 @@ func (ts *TinySegmenter) isTokenRune(r rune) bool {
 
 func (ts *TinySegmenter) initWeights() {
 	ts._BIAS = -332
-	ts._BC1 = charmap{"HH": 6, "II": 2461, "KH": 406, "OH": -1378}
-	ts._BC2 = charmap{"AA": -3267, "AI": 2744, "AN": -878, "HH": -4070, "HM": -1711, "HN": 4012, "HO": 3761, "IA": 1327, "IH": -1184, "II": -1332, "IK": 1721, "IO": 5492, "KI": 3831, "KK": -8741, "MH": -3132, "MK": 3334, "NM": 15000, "OO": -2920}
+	ts._BC1 = charmap{"EE": 0, "HH": 6, "II": 2461, "KH": 406, "OH": -1378}
+	ts._BC2 = charmap{"AA": -3267, "AI": 2744, "AN": -878, "EI": 10000, "EN": 10000, "HH": -4070, "HM": -1711, "HN": 4012, "HO": 3761, "IA": 1327, "IE": 10000, "IH": -1184, "II": -4348, "IK": 1721, "IO": 5492, "KI": 3831, "KK": -8741, "MH": -3132, "MK": 3334, "NM": 15000, "OO": -2920}
 	ts._BC3 = charmap{"HH": 996, "HI": 626, "HK": -721, "HN": -1307, "HO": -836, "IH": -301, "KK": 2762, "MK": 1079, "MM": 4034, "OA": -1652, "OH": 266}
 	ts._BP1 = charmap{"BB": 295, "OB": 304, "OO": -125, "UB": 352}
 	ts._BP2 = charmap{"BO": 60, "OO": -1762}
@@ -86,6 +86,8 @@ func (ts *TinySegmenter) initWeights() {
 
 func (ts *TinySegmenter) ctypeRune(r rune) string {
 	switch {
+	case (r >= 0x1F600 && r <= 0x1F64F) || (r >= 0x1F300 && r <= 0x1F5FF) || (r >= 0x1F680 && r <= 0x1F6FF) || (r >= 0x1F700 && r <= 0x1F77F) || (r >= 0x1F780 && r <= 0x1F7FF) || (r >= 0x1F800 && r <= 0x1F8FF) || (r >= 0x1F900 && r <= 0x1F9FF) || (r >= 0x1FA00 && r <= 0x1FA6F) || (r >= 0x1FA70 && r <= 0x1FAFF) || (r >= 0x2600 && r <= 0x26FF) || (r >= 0x2700 && r <= 0x27BF) || (r >= 0xFE00 && r <= 0xFE0F) || (r >= 0x2300 && r <= 0x23FF):
+		return "E"
 	case (r >= 0x4E00 && r <= 0x9FA0) || r == 0x3005 || r == 0x3006 || r == 0x30F5 || r == 0x30F6:
 		return "H"
 	case r >= 0x3041 && r <= 0x3093:
