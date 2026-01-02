@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -21,17 +23,47 @@ func (i *arrayFlags) Set(value string) error {
 	return nil
 }
 
+func doReader(seg *tinysegmenter.TinySegmenter, in io.Reader) error {
+	scanner := bufio.NewScanner(in)
+	for scanner.Scan() {
+		fmt.Println(strings.Join(seg.Segment(scanner.Text()), " "))
+	}
+	return scanner.Err()
+}
+
+func doFile(seg *tinysegmenter.TinySegmenter, name string) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := doReader(seg, f); err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	var preserveTokens bool
 	var preserveList arrayFlags
 	flag.BoolVar(&preserveTokens, "p", false, "Preserve tokens in the input")
 	flag.Var(&preserveList, "w", "List of tokens to preserve")
 	flag.Parse()
-	scanner := bufio.NewScanner(os.Stdin)
+
 	seg := tinysegmenter.New()
 	seg.SetPreserveTokens(preserveTokens)
 	seg.SetPreserveList(preserveList)
-	for scanner.Scan() {
-		fmt.Println(strings.Join(seg.Segment(scanner.Text()), " "))
+
+	if flag.NArg() == 0 {
+		if err := doReader(seg, os.Stdin); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		for _, name := range flag.Args() {
+			if err := doFile(seg, name); err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 }
