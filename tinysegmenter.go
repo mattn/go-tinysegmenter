@@ -1,16 +1,10 @@
 package tinysegmenter
 
-import "regexp"
-
-type chartype struct {
-	re    *regexp.Regexp
-	ctype string
-}
+import "strings"
 
 type charmap map[string]int
 
 type TinySegmenter struct {
-	chartype       []chartype
 	preserveList   []string // List of strings that should not be segmented
 	preserveTokens bool     // Flag to preserve programming tokens (URLs, paths, etc.)
 	_BIAS          int
@@ -61,27 +55,14 @@ type TinySegmenter struct {
 
 func New() *TinySegmenter {
 	ts := &TinySegmenter{}
-	ts.initPatterns()
 	ts.initWeights()
 	return ts
 }
 
-func (ts *TinySegmenter) initPatterns() {
-	patterns := map[string]string{
-		"[一二三四五六七八九十百千万億兆]": "M",
-		"[一-龠々〆ヵヶ]":         "H",
-		"[ぁ-ん]":             "I",
-		"[ァ-ヴーｱ-ﾝﾞｰ]":       "K",
-		"[a-zA-Zａ-ｚＡ-Ｚ]":    "A",
-		"[0-9０-９]":          "N",
-	}
-
-	for pattern, ctype := range patterns {
-		ts.chartype = append(ts.chartype, chartype{
-			re:    regexp.MustCompile(pattern),
-			ctype: ctype,
-		})
-	}
+func (ts *TinySegmenter) isTokenRune(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9') ||
+		r == '.' || r == '_' || r == '/' || r == '\\' || r == '-' || r == ':' || r == '@'
 }
 
 func (ts *TinySegmenter) initWeights() {
@@ -103,13 +84,23 @@ func (ts *TinySegmenter) initWeights() {
 	ts._NN = charmap{"NN": -11097}
 }
 
-func (ts *TinySegmenter) ctype(str string) string {
-	for _, ct := range ts.chartype {
-		if ct.re.MatchString(str) {
-			return ct.ctype
-		}
+func (ts *TinySegmenter) ctypeRune(r rune) string {
+	switch {
+	case (r >= 0x4E00 && r <= 0x9FA0) || r == 0x3005 || r == 0x3006 || r == 0x30F5 || r == 0x30F6:
+		return "H"
+	case r >= 0x3041 && r <= 0x3093:
+		return "I"
+	case (r >= 0x30A1 && r <= 0x30F4) || r == 0x30FC || (r >= 0xFF71 && r <= 0xFF9D) || r == 0xFF9E || r == 0xFF70:
+		return "K"
+	case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= 0xFF41 && r <= 0xFF5A) || (r >= 0xFF21 && r <= 0xFF3A):
+		return "A"
+	case (r >= '0' && r <= '9') || (r >= 0xFF10 && r <= 0xFF19):
+		return "N"
+	case r == '一' || r == '二' || r == '三' || r == '四' || r == '五' || r == '六' || r == '七' || r == '八' || r == '九' || r == '十' || r == '百' || r == '千' || r == '万' || r == '億' || r == '兆':
+		return "M"
+	default:
+		return "O"
 	}
-	return "O"
 }
 
 // SetPreserveList sets a list of strings that should not be segmented
@@ -120,10 +111,6 @@ func (ts *TinySegmenter) SetPreserveList(words []string) {
 // SetPreserveTokens enables/disables preservation of programming tokens
 func (ts *TinySegmenter) SetPreserveTokens(enable bool) {
 	ts.preserveTokens = enable
-}
-
-func (ts *TinySegmenter) ts(v int) int {
-	return v
 }
 
 func (ts *TinySegmenter) Segment(input string) []string {
@@ -152,13 +139,14 @@ func (ts *TinySegmenter) segmentOriginal(input string) []string {
 	runes := []rune(input)
 	for _, r := range runes {
 		seg = append(seg, string(r))
-		ctype = append(ctype, ts.ctype(string(r)))
+		ctype = append(ctype, ts.ctypeRune(r))
 	}
 
 	seg = append(seg, "E1", "E2", "E3")
 	ctype = append(ctype, "O", "O", "O")
 
-	word := seg[3]
+	var word strings.Builder
+	word.WriteString(seg[3])
 	p1, p2, p3 := "U", "U", "U"
 
 	for i := 4; i < len(seg)-3; i++ {
@@ -166,60 +154,60 @@ func (ts *TinySegmenter) segmentOriginal(input string) []string {
 		w1, w2, w3, w4, w5, w6 := seg[i-3], seg[i-2], seg[i-1], seg[i], seg[i+1], seg[i+2]
 		c1, c2, c3, c4, c5, c6 := ctype[i-3], ctype[i-2], ctype[i-1], ctype[i], ctype[i+1], ctype[i+2]
 
-		score += ts.ts(ts._UP1[p1])
-		score += ts.ts(ts._UP2[p2])
-		score += ts.ts(ts._UP3[p3])
-		score += ts.ts(ts._BP1[p1+p2])
-		score += ts.ts(ts._BP2[p2+p3])
-		score += ts.ts(ts._UW1[w1])
-		score += ts.ts(ts._UW2[w2])
-		score += ts.ts(ts._UW3[w3])
-		score += ts.ts(ts._UW4[w4])
-		score += ts.ts(ts._UW5[w5])
-		score += ts.ts(ts._UW6[w6])
-		score += ts.ts(ts._BW1[w2+w3])
-		score += ts.ts(ts._BW2[w3+w4])
-		score += ts.ts(ts._BW3[w4+w5])
-		score += ts.ts(ts._TW1[w1+w2+w3])
-		score += ts.ts(ts._TW2[w2+w3+w4])
-		score += ts.ts(ts._TW3[w3+w4+w5])
-		score += ts.ts(ts._TW4[w4+w5+w6])
-		score += ts.ts(ts._UC1[c1])
-		score += ts.ts(ts._UC2[c2])
-		score += ts.ts(ts._UC3[c3])
-		score += ts.ts(ts._UC4[c4])
-		score += ts.ts(ts._UC5[c5])
-		score += ts.ts(ts._UC6[c6])
-		score += ts.ts(ts._BC1[c2+c3])
-		score += ts.ts(ts._BC2[c3+c4])
-		score += ts.ts(ts._BC3[c4+c5])
-		score += ts.ts(ts._TC1[c1+c2+c3])
-		score += ts.ts(ts._TC2[c2+c3+c4])
-		score += ts.ts(ts._TC3[c3+c4+c5])
-		score += ts.ts(ts._TC4[c4+c5+c6])
-		score += ts.ts(ts._UQ1[p1+c1])
-		score += ts.ts(ts._UQ2[p2+c2])
-		score += ts.ts(ts._UQ3[p3+c3])
-		score += ts.ts(ts._BQ1[p2+c2+c3])
-		score += ts.ts(ts._BQ2[p2+c3+c4])
-		score += ts.ts(ts._BQ3[p3+c2+c3])
-		score += ts.ts(ts._BQ4[p3+c3+c4])
-		score += ts.ts(ts._TQ1[p2+c1+c2+c3])
-		score += ts.ts(ts._TQ2[p2+c2+c3+c4])
-		score += ts.ts(ts._TQ3[p3+c1+c2+c3])
-		score += ts.ts(ts._TQ4[p3+c2+c3+c4])
-		score += ts.ts(ts._NN[c3+c4])
+		score += ts._UP1[p1]
+		score += ts._UP2[p2]
+		score += ts._UP3[p3]
+		score += ts._BP1[p1+p2]
+		score += ts._BP2[p2+p3]
+		score += ts._UW1[w1]
+		score += ts._UW2[w2]
+		score += ts._UW3[w3]
+		score += ts._UW4[w4]
+		score += ts._UW5[w5]
+		score += ts._UW6[w6]
+		score += ts._BW1[w2+w3]
+		score += ts._BW2[w3+w4]
+		score += ts._BW3[w4+w5]
+		score += ts._TW1[w1+w2+w3]
+		score += ts._TW2[w2+w3+w4]
+		score += ts._TW3[w3+w4+w5]
+		score += ts._TW4[w4+w5+w6]
+		score += ts._UC1[c1]
+		score += ts._UC2[c2]
+		score += ts._UC3[c3]
+		score += ts._UC4[c4]
+		score += ts._UC5[c5]
+		score += ts._UC6[c6]
+		score += ts._BC1[c2+c3]
+		score += ts._BC2[c3+c4]
+		score += ts._BC3[c4+c5]
+		score += ts._TC1[c1+c2+c3]
+		score += ts._TC2[c2+c3+c4]
+		score += ts._TC3[c3+c4+c5]
+		score += ts._TC4[c4+c5+c6]
+		score += ts._UQ1[p1+c1]
+		score += ts._UQ2[p2+c2]
+		score += ts._UQ3[p3+c3]
+		score += ts._BQ1[p2+c2+c3]
+		score += ts._BQ2[p2+c3+c4]
+		score += ts._BQ3[p3+c2+c3]
+		score += ts._BQ4[p3+c3+c4]
+		score += ts._TQ1[p2+c1+c2+c3]
+		score += ts._TQ2[p2+c2+c3+c4]
+		score += ts._TQ3[p3+c1+c2+c3]
+		score += ts._TQ4[p3+c2+c3+c4]
+		score += ts._NN[c3+c4]
 
 		p := "O"
 		if score > 0 {
-			result = append(result, word)
-			word = ""
+			result = append(result, word.String())
+			word.Reset()
 			p = "B"
 		}
 		p1, p2, p3 = p2, p3, p
-		word += seg[i]
+		word.WriteString(seg[i])
 	}
-	result = append(result, word)
+	result = append(result, word.String())
 	return result
 }
 
@@ -252,13 +240,13 @@ func (ts *TinySegmenter) mergeIfMatches(segments []string, target string) []stri
 
 // tryMatch checks if consecutive segments starting at pos form the target
 func (ts *TinySegmenter) tryMatch(segments []string, pos int, target string) (bool, int) {
-	combined := ""
+	var combined strings.Builder
 	for i := pos; i < len(segments); i++ {
-		combined += segments[i]
-		if combined == target {
+		combined.WriteString(segments[i])
+		if combined.String() == target {
 			return true, i - pos + 1
 		}
-		if len(combined) >= len(target) {
+		if combined.Len() >= len(target) {
 			break
 		}
 	}
@@ -267,31 +255,38 @@ func (ts *TinySegmenter) tryMatch(segments []string, pos int, target string) (bo
 
 // segmentWithTokens performs segmentation while preserving programming tokens
 func (ts *TinySegmenter) segmentWithTokens(input string) []string {
-	tokenPattern := regexp.MustCompile(`[a-zA-Z0-9._/\-:@]+`)
-
 	result := []string{}
 	lastEnd := 0
 
-	matches := tokenPattern.FindAllStringIndex(input, -1)
-	for _, match := range matches {
-		start, end := match[0], match[1]
+	runes := []rune(input)
+	i := 0
+	for i < len(runes) {
+		if ts.isTokenRune(runes[i]) {
+			start := i
+			for i < len(runes) && ts.isTokenRune(runes[i]) {
+				i++
+			}
+			end := i
 
-		// Process text before token
-		if start > lastEnd {
-			beforeText := input[lastEnd:start]
-			segments := ts.segmentOriginal(beforeText)
-			result = append(result, ts.mergePreservedWords(segments)...)
+			// Process text before token
+			if start > lastEnd {
+				beforeText := string(runes[lastEnd:start])
+				segments := ts.segmentOriginal(beforeText)
+				result = append(result, ts.mergePreservedWords(segments)...)
+			}
+
+			// Add token as single segment
+			token := string(runes[start:end])
+			result = append(result, token)
+			lastEnd = end
+		} else {
+			i++
 		}
-
-		// Add token as single segment
-		token := input[start:end]
-		result = append(result, token)
-		lastEnd = end
 	}
 
 	// Process remaining text
-	if lastEnd < len(input) {
-		remainingText := input[lastEnd:]
+	if lastEnd < len(runes) {
+		remainingText := string(runes[lastEnd:])
 		segments := ts.segmentOriginal(remainingText)
 		result = append(result, ts.mergePreservedWords(segments)...)
 	}
