@@ -16,6 +16,7 @@ func TestSegment(t *testing.T) {
 		{"123456", nil, []string{"123456"}},                               // Consecutive numbers should not be split
 		{"アリババと40人の盗賊", nil, []string{"アリババ", "と", "40", "人", "の", "盗賊"}}, // Katakana and numbers
 		{"2025年大阪万博", []string{"万博"}, []string{"2025", "年", "大阪", "万博"}},
+		{"🤔2024年", nil, []string{"🤔", "2024", "年"}},
 	}
 
 	ts := New()
@@ -31,7 +32,7 @@ func TestSegment(t *testing.T) {
 func TestPreserveTokens(t *testing.T) {
 	ts := New()
 	ts.SetPreserveTokens(true)
-	
+
 	tests := []struct {
 		input    string
 		expected []string
@@ -57,7 +58,7 @@ func TestPreserveTokens(t *testing.T) {
 			[]string{"foo", " ", "bar"},
 		},
 	}
-	
+
 	for _, test := range tests {
 		result := ts.Segment(test.input)
 		if !reflect.DeepEqual(result, test.expected) {
